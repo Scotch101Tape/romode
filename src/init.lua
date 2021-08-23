@@ -5,19 +5,19 @@ Romode.modeMetatable = {} do
 	modeMetatable.__index = modeMetatable
 
 	-- Fires the beginning function when the mode begins and fires the ending function when the mode ends
-	function modeMetatable:when(beginning: function, ending: function)
-		self.beginning(beginning)
-		self.ending(ending)
+	function modeMetatable:when(beginning, ending)
+		self.beginning.Event:Connect(beginning)
+		self.ending.Event:Connect(ending)
 	end
 
 	-- Connects the event to the function when the mode begins and disconnects when the mode ends
-	function modeMetatable:during(event: RBXScriptSignal, f: function)
+	function modeMetatable:during(event: RBXScriptSignal, f)
 		local connection
-		self.beginning:Connect(function()
+		self.beginning.Event:Connect(function()
 			connection = event:Connect(f)
 		end)
 
-		self.ending:Connect(function()
+		self.ending.Event:Connect(function()
 			if connection then
 				connection:Disconnect()
 			end
@@ -29,7 +29,7 @@ Romode.modeMetatable = {} do
 		-- A function is used for recursion only
 		-- It goes up the tree until it hits the top (which has no super).
 		-- It then fires events and sets the on list
-		function rec(tbl: table, onList: table)
+		local function rec(tbl: table, onList: table)
 			-- Add the table onto the on list
 			onList[#onList+1] = tbl
 			
@@ -39,14 +39,17 @@ Romode.modeMetatable = {} do
 				rec(super, onList)
 			else
 				-- We have reached the top now and can fire events
-
+				
 				-- First we check what hasn't changed
 				local same = true
 				local currentlyOn = tbl.on
-				for i, child in ipairs(onList) do
-					-- Check to see if they are still the same
+				for i = 1, math.max(#currentlyOn, #onList), 1 do
+					local cOn = currentlyOn[i]
+					local lOn = onList[i]
+
+					-- Check to see if they're still the same
 					if same then
-						if child == currentlyOn[i] then
+						if lOn == cOn then
 							-- Skip firing events if they are
 							continue
 						else
@@ -54,10 +57,15 @@ Romode.modeMetatable = {} do
 							same = false
 						end
 					end
-						
-					-- Fire the events for changing
-					currentlyOn[i].ending:Fire()
-					child.beginning:Fire()
+
+					-- Fire events
+					if cOn then
+						cOn.ending:Fire()
+					end
+
+					if lOn then
+						lOn.beginning:Fire()
+					end
 				end
 
 				-- Set the new on list
@@ -65,6 +73,39 @@ Romode.modeMetatable = {} do
 			end
 		end
 		rec(self, {})
+	end
+
+	-- Overwrites the fields provided
+	-- This fires the dataChanged event
+	function modeMetatable:setData(overData)
+		-- Function is used for recursion only
+		-- It over write the all the properties in overData and creates a table of all changed properties
+		local function rec(over, write)
+			local changed = {}
+		 	for key, val in pairs(over) do
+				if type(val) == "table" then
+					-- Add table changed
+					changed[key] = {}
+
+					-- If no table in write, create it
+					if not write[key] then
+						write[key] = {}
+					end
+
+					-- Do rec on the table in write
+					rec(val, write[key])
+				else
+					-- Add value changed
+					changed[key] = true
+
+					-- Overwrite the val of write
+					write[key] = val
+				end
+			end
+		end
+		local changed = rec(overData, self.data)
+
+		self.dataChanged:Fire(self.data, changed)
 	end
 end
 
@@ -82,11 +123,12 @@ function Romode.new(tree: table): table
 		-- Set the events
 		tbl.beginning = Instance.new("BindableEvent")
 		tbl.ending = Instance.new("BindableEvent")
+		tbl.dataChanged = Instance.new("BindableEvent")
 
 		for key, val in pairs(tbl) do
 			-- Make sure it is not super, data, or and event
 			if key ~= "super" and key ~= "data" and type(val) == "table" then
-				rec(val, super)
+				rec(val, tbl)
 			end
 		end
 	end
@@ -95,6 +137,8 @@ function Romode.new(tree: table): table
 	-- Init the current mode value,
 	-- No events are fired for this
 	tree.on = {tree}
+
+	return tree
 end
 
 return Romode
