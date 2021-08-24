@@ -8,6 +8,11 @@ Romode.modeMetatable = {} do
 	function modeMetatable:when(beginning, ending)
 		self.beginning.Event:Connect(beginning)
 		self.ending.Event:Connect(ending)
+
+		-- Call beginning if on when you call the method
+		if self.isOn then
+			beginning()
+		end
 	end
 
 	-- Connects the event to the function when the mode begins and disconnects when the mode ends
@@ -22,6 +27,11 @@ Romode.modeMetatable = {} do
 				connection:Disconnect()
 			end
 		end)
+
+		-- Connect if on when you call the method
+		if self.isOn then
+			connection = event:Connect(f)
+		end
 	end
 
 	-- Sets the current mode to self
@@ -58,13 +68,15 @@ Romode.modeMetatable = {} do
 						end
 					end
 
-					-- Fire events
+					-- Fire events and set isOn
 					if cOn then
 						cOn.ending:Fire()
+						cOn.isOn = false
 					end
 
 					if lOn then
 						lOn.beginning:Fire()
+						lOn.isOn = true
 					end
 				end
 
@@ -78,6 +90,11 @@ Romode.modeMetatable = {} do
 	-- Overwrites the fields provided
 	-- This fires the dataChanged event
 	function modeMetatable:setData(overData)
+		-- Check if the mode is on
+		if not self.isOn then
+			error("Setting data in a mode that is not on is not allowed")
+		end
+
 		-- Function is used for recursion only
 		-- It over write the all the properties in overData and creates a table of all changed properties
 		local function rec(over, write)
@@ -102,6 +119,8 @@ Romode.modeMetatable = {} do
 					write[key] = val
 				end
 			end
+
+			return changed
 		end
 		local changed = rec(overData, self.data)
 
@@ -117,8 +136,9 @@ function Romode.new(tree: table): table
 		-- Set the meta table
 		setmetatable(tbl, Romode.modeMetatable)
 
-		-- Set the super property
+		-- Set the properties
 		tbl.super = super
+		tbl.isOn = false
 
 		-- Set the events
 		tbl.beginning = Instance.new("BindableEvent")
@@ -137,6 +157,7 @@ function Romode.new(tree: table): table
 	-- Init the current mode value,
 	-- No events are fired for this
 	tree.on = {tree}
+	tree.isOn = true
 
 	return tree
 end
