@@ -1,8 +1,15 @@
+local Util = require(script.util)
+local recursion = Util.recursion
+
+-- Romode
 local Romode = {}
 
+-- The metatable for modes
 Romode.modeMetatable = {} do
 	local modeMetatable = Romode.modeMetatable
 	modeMetatable.__index = modeMetatable
+
+	-- Mode methods
 
 	-- Fires the beginning function when the mode begins and fires the ending function when the mode ends
 	function modeMetatable:when(beginning, ending)
@@ -36,17 +43,16 @@ Romode.modeMetatable = {} do
 
 	-- Sets the current mode to self
 	function modeMetatable:setMode()
-		-- A function is used for recursion only
 		-- It goes up the tree until it hits the top (which has no super).
 		-- It then fires events and sets the on list
-		local function rec(tbl: table, onList: table)
+		recursion(function(f, tbl: table, onList: table)
 			-- Add the table onto the on list
 			onList[#onList+1] = tbl
 			
 			-- If it has a super, go up, otherwise you have reached the top
 			local super = tbl.super
 			if super then
-				rec(super, onList)
+				f(super, onList)
 			else
 				-- We have reached the top now and can fire events
 				
@@ -83,9 +89,10 @@ Romode.modeMetatable = {} do
 				-- Set the new on list
 				tbl.on = onList
 			end
-		end
-		rec(self, {})
+		end)(self, {})
 	end
+
+	-- Data methods
 
 	-- Overwrites the fields provided
 	-- This fires the dataChanged event
@@ -97,7 +104,7 @@ Romode.modeMetatable = {} do
 
 		-- Function is used for recursion only
 		-- It over write the all the properties in overData and creates a table of all changed properties
-		local function rec(over, write)
+		local changed = recursion(function(f, over, write)
 			local changed = {}
 		 	for key, val in pairs(over) do
 				if type(val) == "table" then
@@ -110,7 +117,7 @@ Romode.modeMetatable = {} do
 					end
 
 					-- Do rec on the table in write
-					rec(val, write[key])
+					f(val, write[key])
 				else
 					-- Add value changed
 					changed[key] = true
@@ -121,18 +128,18 @@ Romode.modeMetatable = {} do
 			end
 
 			return changed
-		end
-		local changed = rec(overData, self.data)
+		end)(overData, self.data)
 
 		self.dataChanged:Fire(self.data, changed)
 	end
 end
 
-function Romode.new(tree: table): table
-	-- A function is only used so that it is possible to use recursion
+
+-- Apply methods to the tree given
+function Romode.new(tree: table, dataMethods: boolean?): table
 	-- Goes through the tree and adds the meta table and other properties
 	-- to the tree
-	local function rec(tbl: table, super: table?)
+	recursion(function(f, tbl: table, super: table?)
 		-- Set the meta table
 		setmetatable(tbl, Romode.modeMetatable)
 
@@ -143,16 +150,25 @@ function Romode.new(tree: table): table
 		-- Set the events
 		tbl.beginning = Instance.new("BindableEvent")
 		tbl.ending = Instance.new("BindableEvent")
-		tbl.dataChanged = Instance.new("BindableEvent")
+
+		-- Datamethod settings
+		if dataMethods then
+			-- Add setData if using dataMethods
+			tbl.setData = Instance.new("BindableEvent")
+		else
+			--If dataMethods are not being used, make them unreachable
+			tbl.setData = function()
+				error("Turn on dataMethods to use setData")
+			end
+		end
 
 		for key, val in pairs(tbl) do
 			-- Make sure it is not super, data, or and event
 			if key ~= "super" and key ~= "data" and type(val) == "table" then
-				rec(val, tbl)
+				f(val, tbl)
 			end
 		end
-	end
-	rec(tree)
+	end)(tree)
 
 	-- Init the current mode value,
 	-- No events are fired for this
