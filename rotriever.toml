@@ -1,0 +1,6 @@
+[package]
+name = "scotch101tape/romode"
+author = "Scotch101tape"
+license = "MIT"
+content_root = "src"
+version = "1.0.0"

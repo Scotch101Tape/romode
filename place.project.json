@@ -1,0 +1,22 @@
+{
+    "name": "Romode Test Place",
+    "tree": {
+        "$className": "DataModel",
+    
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+    
+            "Romode": {
+            "$path": "src"
+            }
+    
+        },
+    
+        "Players": {
+            "$className": "Players",
+            "$properties": {
+            "CharacterAutoLoads": false
+            }
+        }
+    }
+}
