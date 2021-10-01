@@ -21,7 +21,7 @@ A module for handling modes and contexts in Roblox.
 
 ## [Documentation](https://scotch101tape.github.io/romode/)
 
-For a complete documentation of the langauge visit the [gihub page](https://scotch101tape.github.io/romode/)
+For a complete documentation of the langauge visit the [github page](https://scotch101tape.github.io/romode/)
 
 ```lua
 -- Context Action Service goes well with Romode
@@ -74,4 +74,4 @@ mode.Lobby:setMode()
 
 ## License
 
-This code is under the MIT license. See [license.txt](https://github.com/scotch101tape/romode/license.txt).
+This code is under the MIT license. See [license.txt](https://github.com/scotch101tape/romode/LICENSE.txt).
